@@ -26,6 +26,37 @@
         window.postMessage({ type: 'KRIPTIK_EXTENSION_PONG' }, '*');
         break;
 
+      case 'KRIPTIK_START_FIX_SESSION':
+        // User started Fix My App workflow - enable capture on AI platforms
+        try {
+          await chrome.storage.local.set({
+            fixMyAppSession: {
+              active: true,
+              startedAt: Date.now(),
+              projectName: data.projectName || 'Imported Project',
+              returnUrl: data.returnUrl || window.location.href,
+              apiEndpoint: data.apiEndpoint,
+              token: data.token
+            }
+          });
+          console.log('[KripTik Bridge] Fix My App session started');
+          window.postMessage({ type: 'KRIPTIK_FIX_SESSION_STARTED' }, '*');
+        } catch (error) {
+          console.error('[KripTik Bridge] Failed to start Fix My App session:', error);
+        }
+        break;
+
+      case 'KRIPTIK_END_FIX_SESSION':
+        // User completed or cancelled Fix My App - disable capture
+        try {
+          await chrome.storage.local.remove('fixMyAppSession');
+          console.log('[KripTik Bridge] Fix My App session ended');
+          window.postMessage({ type: 'KRIPTIK_FIX_SESSION_ENDED' }, '*');
+        } catch (error) {
+          console.error('[KripTik Bridge] Failed to end Fix My App session:', error);
+        }
+        break;
+
       case 'KRIPTIK_START_CREDENTIAL_CAPTURE':
         // Forward credential capture request to background script
         try {
