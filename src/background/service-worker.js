@@ -171,14 +171,28 @@ const messageHandlers = {
   SEND_TO_KRIPTIK_API: async (message) => {
     const { endpoint, token, payload } = message;
 
-    if (!endpoint || !token) {
-      return { success: false, error: 'Missing endpoint or token' };
+    // Detailed validation with specific error messages
+    if (!endpoint) {
+      console.error('[Service Worker] SEND_TO_KRIPTIK_API: No endpoint provided');
+      return { success: false, error: 'No API endpoint configured. Please configure in extension settings.' };
     }
 
-    try {
-      console.log('[Service Worker] Sending to KripTik API:', endpoint);
+    if (!token) {
+      console.error('[Service Worker] SEND_TO_KRIPTIK_API: No token provided');
+      return { success: false, error: 'No API token configured. Please configure in extension settings.' };
+    }
 
-      const response = await fetch(`${endpoint}/api/extension/import`, {
+    const apiUrl = `${endpoint}/api/extension/import`;
+    console.log('[Service Worker] Sending to KripTik API:', apiUrl);
+    console.log('[Service Worker] Payload summary:', {
+      platform: payload?.platform?.name,
+      chatMessages: payload?.chatHistory?.messageCount || 0,
+      errors: payload?.errors?.count || 0,
+      hasFiles: !!payload?.files
+    });
+
+    try {
+      const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -187,25 +201,46 @@ const messageHandlers = {
         body: JSON.stringify(payload)
       });
 
-      const result = await response.json();
+      console.log('[Service Worker] API response status:', response.status);
+
+      let result;
+      try {
+        result = await response.json();
+      } catch (parseError) {
+        console.error('[Service Worker] Failed to parse response as JSON:', parseError);
+        const text = await response.text();
+        console.error('[Service Worker] Response body:', text.substring(0, 500));
+        return { success: false, error: `Invalid JSON response from server (HTTP ${response.status})` };
+      }
 
       if (!response.ok) {
+        console.error('[Service Worker] API error response:', result);
         return {
           success: false,
-          error: result.error || result.message || `HTTP ${response.status}`
+          error: result.error || result.message || `HTTP ${response.status}: ${response.statusText}`
         };
       }
 
+      console.log('[Service Worker] API success:', result);
       return {
         success: true,
         projectId: result.projectId,
         projectName: result.projectName,
         dashboardUrl: result.dashboardUrl,
         builderUrl: result.builderUrl,
-        stats: result.stats
+        fixMyAppUrl: result.fixMyAppUrl,
+        stats: result.stats,
+        analysisStarted: result.analysisStarted
       };
     } catch (error) {
       console.error('[Service Worker] API request failed:', error);
+      // Provide more specific error messages
+      if (error.message.includes('Failed to fetch')) {
+        return {
+          success: false,
+          error: `Network error: Cannot reach ${endpoint}. Check if the URL is correct and the server is running.`
+        };
+      }
       return { success: false, error: error.message };
     }
   },

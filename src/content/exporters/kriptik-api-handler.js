@@ -52,17 +52,45 @@ class KripTikAPIHandler extends ExportHandlerBase {
 
     /**
      * Load KripTik configuration from chrome.storage
+     * Checks both popup-saved keys (apiEndpoint/apiToken) and
+     * Fix My App session keys for backwards compatibility
      */
     async loadKripTikConfig() {
         return new Promise((resolve) => {
-            chrome.storage.sync.get(['kriptikApiEndpoint', 'kriptikToken'], (result) => {
-                this.kriptikApiEndpoint = result.kriptikApiEndpoint;
-                this.kriptikToken = result.kriptikToken;
+            // Check popup keys first, then session keys, then legacy keys
+            chrome.storage.sync.get(['apiEndpoint', 'apiToken', 'kriptikApiEndpoint', 'kriptikToken'], (syncResult) => {
+                // Also check local storage for Fix My App session
+                chrome.storage.local.get(['fixMyAppSession'], (localResult) => {
+                    const session = localResult.fixMyAppSession;
 
-                if (this.kriptikApiEndpoint) {
-                    this.log(`KripTik endpoint: ${this.kriptikApiEndpoint}`);
-                }
-                resolve();
+                    // Priority: popup keys > session keys > legacy keys
+                    this.kriptikApiEndpoint = syncResult.apiEndpoint ||
+                                              session?.apiEndpoint ||
+                                              syncResult.kriptikApiEndpoint;
+
+                    this.kriptikToken = syncResult.apiToken ||
+                                        session?.token ||
+                                        syncResult.kriptikToken;
+
+                    // Log what we found for debugging
+                    if (this.kriptikApiEndpoint) {
+                        this.log(`KripTik endpoint configured: ${this.kriptikApiEndpoint}`);
+                    } else {
+                        this.log(`[ERROR] No KripTik endpoint found in storage!`);
+                        this.log(`[DEBUG] sync.apiEndpoint: ${syncResult.apiEndpoint || 'not set'}`);
+                        this.log(`[DEBUG] session.apiEndpoint: ${session?.apiEndpoint || 'not set'}`);
+                    }
+
+                    if (this.kriptikToken) {
+                        this.log(`KripTik token configured: ${this.kriptikToken.substring(0, 20)}...`);
+                    } else {
+                        this.log(`[ERROR] No KripTik token found in storage!`);
+                        this.log(`[DEBUG] sync.apiToken: ${syncResult.apiToken ? 'set' : 'not set'}`);
+                        this.log(`[DEBUG] session.token: ${session?.token ? 'set' : 'not set'}`);
+                    }
+
+                    resolve();
+                });
             });
         });
     }
