@@ -21,18 +21,18 @@
         },
 
         selectors: {
-            chatContainer: '.chat-messages, [class*="chat"], [class*="Messages"], [class*="conversation"]',
-            chatMessage: '.message, [class*="message-item"], [class*="chat-message"]',
-            messageRole: 'data-sender, data-role',
-            messageContent: '.message-text, .content, p, [class*="message-content"]',
-            loadMoreButton: '.load-more, button[class*="load"], button:contains("Load more")',
-            errorPanel: '.error-display, [class*="error"], [class*="ErrorPanel"]',
-            fileTree: '.file-tree, [class*="files"], [class*="FileTree"], [class*="explorer"]',
-            fileItem: '.file-node, [class*="file"], [class*="FileItem"]',
-            previewFrame: 'iframe.preview, iframe[class*="preview"], iframe[title*="Preview"]',
+            chatContainer: '[class*="chat"], [class*="Messages"], [class*="conversation"], [class*="Chat"], main',
+            chatMessage: '[class*="message"], [class*="Message"], [class*="turn"], [class*="response"]',
+            messageRole: 'data-sender, data-role, data-author',
+            messageContent: '[class*="content"], [class*="text"], [class*="prose"], p',
+            loadMoreButton: '.load-more, button[class*="load"], [class*="load-more"]',
+            errorPanel: '[class*="error"], [class*="Error"], [role="alert"]',
+            fileTree: '[class*="file"], [class*="File"], [class*="explorer"], [class*="sidebar"]',
+            fileItem: '[class*="file"], [class*="item"], [class*="node"]',
+            previewFrame: 'iframe[class*="preview"], iframe[title*="Preview"], iframe',
             terminal: '[class*="terminal"], [class*="Terminal"], .xterm',
-            exportButton: 'button:contains("Download"), [class*="download"], button[aria-label*="Download"]',
-            codeBlocks: 'pre code, [class*="code-block"], .hljs'
+            exportButton: '[class*="download"], [class*="export"], button[aria-label*="Download" i], button[aria-label*="Export" i]',
+            codeBlocks: 'pre code, [class*="code-block"], [class*="CodeBlock"], .hljs'
         },
 
         metadata: {

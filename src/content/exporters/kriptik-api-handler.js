@@ -328,37 +328,28 @@ class KripTikAPIHandler extends ExportHandlerBase {
     }
 
     /**
-     * Send payload to KripTik API
+     * Send payload to KripTik API via background script (avoids CORS)
      */
     async sendToKripTik(payload) {
-        this.log('Sending to KripTik API...');
+        this.log('Sending to KripTik API via background script...');
 
-        const response = await fetch(`${this.kriptikApiEndpoint}/api/extension/import`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${this.kriptikToken}`
-            },
-            body: JSON.stringify(payload)
+        return new Promise((resolve) => {
+            chrome.runtime.sendMessage({
+                type: 'SEND_TO_KRIPTIK_API',
+                endpoint: this.kriptikApiEndpoint,
+                token: this.kriptikToken,
+                payload: payload
+            }, (response) => {
+                if (chrome.runtime.lastError) {
+                    resolve({
+                        success: false,
+                        error: chrome.runtime.lastError.message
+                    });
+                } else {
+                    resolve(response || { success: false, error: 'No response from background' });
+                }
+            });
         });
-
-        const result = await response.json();
-
-        if (!response.ok) {
-            return {
-                success: false,
-                error: result.error || result.message || `HTTP ${response.status}`
-            };
-        }
-
-        return {
-            success: true,
-            projectId: result.projectId,
-            projectName: result.projectName,
-            dashboardUrl: result.dashboardUrl,
-            builderUrl: result.builderUrl,
-            stats: result.stats
-        };
     }
 
     /**

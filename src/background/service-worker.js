@@ -165,6 +165,52 @@ const messageHandlers = {
   },
 
   // -------------------------------------------------------------------------
+  // KripTik API Proxy (to avoid CORS issues from content scripts)
+  // -------------------------------------------------------------------------
+
+  SEND_TO_KRIPTIK_API: async (message) => {
+    const { endpoint, token, payload } = message;
+
+    if (!endpoint || !token) {
+      return { success: false, error: 'Missing endpoint or token' };
+    }
+
+    try {
+      console.log('[Service Worker] Sending to KripTik API:', endpoint);
+
+      const response = await fetch(`${endpoint}/api/extension/import`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(payload)
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        return {
+          success: false,
+          error: result.error || result.message || `HTTP ${response.status}`
+        };
+      }
+
+      return {
+        success: true,
+        projectId: result.projectId,
+        projectName: result.projectName,
+        dashboardUrl: result.dashboardUrl,
+        builderUrl: result.builderUrl,
+        stats: result.stats
+      };
+    } catch (error) {
+      console.error('[Service Worker] API request failed:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  // -------------------------------------------------------------------------
   // Extension Status
   // -------------------------------------------------------------------------
 
