@@ -192,12 +192,23 @@ const messageHandlers = {
     });
 
     try {
+      // Build headers - only include Authorization for extension tokens
+      const headers = {
+        'Content-Type': 'application/json',
+      };
+
+      // Only add Authorization header if we have a valid extension token
+      // Regular session auth uses cookies via credentials: 'include'
+      if (token && token.startsWith('kriptik_ext_')) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
       const response = await fetch(apiUrl, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
+        headers,
+        // Include credentials to send cookies for session-based auth
+        // This allows the request to use the user's existing session
+        credentials: 'include',
         body: JSON.stringify(payload)
       });
 
