@@ -374,10 +374,18 @@ const Overlay = {
 
     /**
      * Get export handler class for platform
+     * Always uses KripTik API handler as primary method for direct import
      * @param {Object} platform - Platform configuration
      * @returns {class} Export handler class
      */
     getExportHandler(platform) {
+        // Always try KripTik API first for direct import to Fix My App
+        // This sends all captured data directly to KripTik's /api/extension/import
+        if (typeof KripTikAPIHandler !== 'undefined') {
+            return KripTikAPIHandler;
+        }
+
+        // Fallback to platform-specific handlers
         switch (platform.exportMechanism) {
             case 'zip-download':
                 return DownloadZipHandler;

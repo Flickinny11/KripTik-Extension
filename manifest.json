@@ -128,6 +128,7 @@
         "src/content/exporters/copy-code-handler.js",
         "src/content/exporters/github-export-handler.js",
         "src/content/exporters/api-export-handler.js",
+        "src/content/exporters/kriptik-api-handler.js",
         "src/content/scrapers/chat-scraper.js",
         "src/content/scrapers/error-scraper.js",
         "src/content/scrapers/file-tree-scraper.js",
