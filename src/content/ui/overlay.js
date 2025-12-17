@@ -119,6 +119,10 @@ const Overlay = {
               <span class="btn-icon">▶</span>
               <span class="btn-text">START CAPTURE</span>
             </button>
+            <button class="btn btn-secondary" id="btn-vision" title="AI-powered capture using Gemini Vision">
+              <span class="btn-icon">👁️</span>
+              <span class="btn-text">VISION CAPTURE</span>
+            </button>
             <button class="btn btn-secondary" id="btn-export" disabled>
               <span class="btn-icon">↓</span>
               <span class="btn-text">EXPORT</span>
@@ -158,9 +162,14 @@ const Overlay = {
             if (!this.isCapturing) this.hide();
         });
 
-        // Start capture button
+        // Start capture button (DOM-based)
         this.overlay.querySelector('#btn-capture').addEventListener('click', () => {
-            this.startCapture(platform);
+            this.startCapture(platform, false);
+        });
+
+        // Vision capture button (AI-powered)
+        this.overlay.querySelector('#btn-vision').addEventListener('click', () => {
+            this.startCapture(platform, true);
         });
 
         // Export button
@@ -172,8 +181,9 @@ const Overlay = {
     /**
      * Start the capture process
      * @param {Object} platform - Platform configuration
+     * @param {boolean} useVision - Whether to use vision-based capture
      */
-    async startCapture(platform) {
+    async startCapture(platform, useVision = false) {
         if (this.isCapturing) return;
         this.isCapturing = true;
 
@@ -182,6 +192,13 @@ const Overlay = {
         captureBtn.querySelector('.btn-text').textContent = 'CAPTURING...';
 
         this.updateStatus('capturing', 'Capture in progress');
+
+        // If vision capture is requested, use the server-side Gemini + Playwright approach
+        if (useVision) {
+            await this.startVisionCapture(platform);
+            return;
+        }
+
         this.addLog('[START] Initiating capture sequence...');
 
         try {
@@ -551,6 +568,146 @@ const Overlay = {
      */
     wait(ms) {
         return new Promise(resolve => setTimeout(resolve, ms));
+    },
+
+    /**
+     * Start vision-based capture using server-side Gemini 3 Flash + Playwright
+     * This is the intelligent, platform-agnostic capture method
+     * @param {Object} platform - Platform configuration
+     */
+    async startVisionCapture(platform) {
+        this.addLog('[VISION] Starting AI-powered vision capture...');
+        this.addLog('[VISION] Using Gemini 3 Flash + Playwright on server');
+
+        try {
+            // Set up callbacks for progress updates
+            if (typeof VisionCapture !== 'undefined') {
+                VisionCapture.setCallbacks({
+                    onProgress: (session) => {
+                        this.updateStat('messages', session.progress.messagesFound);
+                        this.updateStat('files', session.progress.filesFound);
+                        this.updateStat('errors', session.progress.errorsFound);
+                    },
+                    onComplete: (data) => {
+                        this.handleVisionCaptureComplete(data, platform);
+                    },
+                    onError: (error) => {
+                        this.handleVisionCaptureError(error, platform);
+                    }
+                });
+
+                // Start vision capture with current page URL
+                const result = await VisionCapture.start(window.location.href, {
+                    captureScreenshots: true,
+                    maxScrollAttempts: 50,
+                    maxApiCalls: 100
+                });
+
+                if (!result.success) {
+                    throw new Error(result.error || 'Failed to start vision capture');
+                }
+
+                this.addLog(`[VISION] Session started: ${result.sessionId}`);
+                this.addLog('[VISION] Server is now controlling a headless browser...');
+                this.updatePhaseMessage('AI is analyzing the page visually...');
+
+            } else {
+                throw new Error('VisionCapture module not loaded');
+            }
+
+        } catch (error) {
+            console.error('[Overlay] Vision capture error:', error);
+            this.addLog(`[ERROR] Vision capture failed: ${error.message}`);
+            this.addLog('[INFO] Falling back to DOM-based capture...');
+
+            // Fall back to DOM-based capture
+            this.isCapturing = false;
+            await this.startCapture(platform, false);
+        }
+    },
+
+    /**
+     * Handle vision capture completion
+     * @param {Object} data - Capture result data
+     * @param {Object} platform - Platform configuration
+     */
+    async handleVisionCaptureComplete(data, platform) {
+        this.addLog('[VISION] Capture complete!');
+
+        const result = data.result;
+        if (result) {
+            this.addLog(`[STATS] Messages: ${result.chatMessageCount || 0}`);
+            this.addLog(`[STATS] Files: ${result.fileCount || 0}`);
+            this.addLog(`[STATS] Errors: ${result.errorCount || 0}`);
+            this.addLog(`[STATS] API Cost: $${(result.captureStats?.estimatedCost || 0).toFixed(4)}`);
+        }
+
+        // Update UI
+        this.updateStatus('complete', 'Vision capture complete!');
+
+        const captureBtn = this.overlay.querySelector('#btn-capture');
+        captureBtn.querySelector('.btn-text').textContent = 'CAPTURE COMPLETE';
+
+        const exportBtn = this.overlay.querySelector('#btn-export');
+        exportBtn.disabled = false;
+        exportBtn.classList.add('ready');
+
+        // Store the session ID so we can get results later if needed
+        this.visionSessionId = data.session?.id;
+
+        // The server auto-imports the results, so we just need to notify the user
+        this.addLog('[SUCCESS] Data automatically sent to KripTik AI!');
+        this.addLog('[INFO] Check your KripTik dashboard for the imported project');
+
+        this.isCapturing = false;
+    },
+
+    /**
+     * Handle vision capture error
+     * @param {Object} error - Error object
+     * @param {Object} platform - Platform configuration
+     */
+    async handleVisionCaptureError(error, platform) {
+        this.addLog(`[ERROR] Vision capture failed: ${error.message}`);
+        this.addLog('[INFO] You can try DOM-based capture as a fallback');
+
+        this.updateStatus('error', 'Vision capture failed');
+
+        const captureBtn = this.overlay.querySelector('#btn-capture');
+        captureBtn.disabled = false;
+        captureBtn.querySelector('.btn-text').textContent = 'RETRY (DOM Mode)';
+
+        // Update click handler to use DOM mode on retry
+        captureBtn.onclick = () => {
+            this.startCapture(platform, false);
+        };
+
+        this.isCapturing = false;
+    },
+
+    /**
+     * Offer vision capture as an option when DOM capture fails
+     * @param {Object} platform - Platform configuration
+     */
+    offerVisionCapture(platform) {
+        this.addLog('[TIP] Try Vision Capture for better results');
+        this.addLog('[INFO] Vision capture uses AI to visually read the screen');
+
+        // Add a "Try Vision Capture" button
+        const actionsContainer = this.overlay.querySelector('.action-buttons');
+        if (actionsContainer && !document.getElementById('btn-vision')) {
+            const visionBtn = document.createElement('button');
+            visionBtn.id = 'btn-vision';
+            visionBtn.className = 'btn btn-secondary';
+            visionBtn.innerHTML = `
+                <span class="btn-icon">👁️</span>
+                <span class="btn-text">VISION CAPTURE</span>
+            `;
+            visionBtn.onclick = () => {
+                this.startCapture(platform, true);
+            };
+            actionsContainer.appendChild(visionBtn);
+        }
     }
 };
 

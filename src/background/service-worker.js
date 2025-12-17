@@ -276,6 +276,198 @@ const messageHandlers = {
   GET_CURRENT_TAB_ID: async (message, sender) => {
     // Return the sender tab's ID
     return { tabId: sender.tab?.id || null };
+  },
+
+  // -------------------------------------------------------------------------
+  // Vision Capture (Server-side Gemini 3 Flash + Playwright)
+  // -------------------------------------------------------------------------
+
+  START_VISION_CAPTURE: async (message) => {
+    const { url, options } = message;
+
+    // Get API config from storage
+    const config = await chrome.storage.sync.get(['apiEndpoint', 'apiToken']);
+    const session = await chrome.storage.local.get(['fixMyAppSession']);
+
+    const apiEndpoint = config.apiEndpoint || session.fixMyAppSession?.apiEndpoint;
+    const token = config.apiToken || session.fixMyAppSession?.token;
+
+    if (!apiEndpoint) {
+      return { success: false, error: 'API endpoint not configured' };
+    }
+
+    console.log('[Service Worker] Starting vision capture for:', url);
+
+    try {
+      // Get cookies for the target URL to pass to the server
+      const cookies = await chrome.cookies.getAll({ url });
+      const formattedCookies = cookies.map(c => ({
+        name: c.name,
+        value: c.value,
+        domain: c.domain,
+        path: c.path,
+        expires: c.expirationDate,
+        httpOnly: c.httpOnly,
+        secure: c.secure,
+        sameSite: c.sameSite === 'strict' ? 'Strict' : c.sameSite === 'lax' ? 'Lax' : 'None'
+      }));
+
+      const headers = {
+        'Content-Type': 'application/json',
+      };
+
+      if (token && token.startsWith('kriptik_ext_')) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const response = await fetch(`${apiEndpoint}/api/extension/vision-capture/start`, {
+        method: 'POST',
+        headers,
+        credentials: 'include',
+        body: JSON.stringify({
+          url,
+          cookies: formattedCookies,
+          options: options || {}
+        })
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        return { success: false, error: error.error || `HTTP ${response.status}` };
+      }
+
+      const result = await response.json();
+      console.log('[Service Worker] Vision capture started:', result);
+
+      return {
+        success: true,
+        sessionId: result.sessionId,
+        eventsUrl: `${apiEndpoint}${result.eventsUrl}`
+      };
+    } catch (error) {
+      console.error('[Service Worker] Vision capture error:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  GET_VISION_CAPTURE_STATUS: async (message) => {
+    const { sessionId } = message;
+
+    const config = await chrome.storage.sync.get(['apiEndpoint', 'apiToken']);
+    const session = await chrome.storage.local.get(['fixMyAppSession']);
+
+    const apiEndpoint = config.apiEndpoint || session.fixMyAppSession?.apiEndpoint;
+    const token = config.apiToken || session.fixMyAppSession?.token;
+
+    if (!apiEndpoint || !sessionId) {
+      return { success: false, error: 'Missing endpoint or session ID' };
+    }
+
+    try {
+      const headers = {
+        'Content-Type': 'application/json',
+      };
+
+      if (token && token.startsWith('kriptik_ext_')) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const response = await fetch(`${apiEndpoint}/api/extension/vision-capture/status/${sessionId}`, {
+        method: 'GET',
+        headers,
+        credentials: 'include'
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        return { success: false, error: error.error || `HTTP ${response.status}` };
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('[Service Worker] Get status error:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  CANCEL_VISION_CAPTURE: async (message) => {
+    const { sessionId } = message;
+
+    const config = await chrome.storage.sync.get(['apiEndpoint', 'apiToken']);
+    const session = await chrome.storage.local.get(['fixMyAppSession']);
+
+    const apiEndpoint = config.apiEndpoint || session.fixMyAppSession?.apiEndpoint;
+    const token = config.apiToken || session.fixMyAppSession?.token;
+
+    if (!apiEndpoint || !sessionId) {
+      return { success: false, error: 'Missing endpoint or session ID' };
+    }
+
+    try {
+      const headers = {
+        'Content-Type': 'application/json',
+      };
+
+      if (token && token.startsWith('kriptik_ext_')) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const response = await fetch(`${apiEndpoint}/api/extension/vision-capture/cancel/${sessionId}`, {
+        method: 'POST',
+        headers,
+        credentials: 'include'
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        return { success: false, error: error.error || `HTTP ${response.status}` };
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('[Service Worker] Cancel capture error:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  GET_VISION_CAPTURE_RESULT: async (message) => {
+    const { sessionId } = message;
+
+    const config = await chrome.storage.sync.get(['apiEndpoint', 'apiToken']);
+    const session = await chrome.storage.local.get(['fixMyAppSession']);
+
+    const apiEndpoint = config.apiEndpoint || session.fixMyAppSession?.apiEndpoint;
+    const token = config.apiToken || session.fixMyAppSession?.token;
+
+    if (!apiEndpoint || !sessionId) {
+      return { success: false, error: 'Missing endpoint or session ID' };
+    }
+
+    try {
+      const headers = {
+        'Content-Type': 'application/json',
+      };
+
+      if (token && token.startsWith('kriptik_ext_')) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const response = await fetch(`${apiEndpoint}/api/extension/vision-capture/result/${sessionId}`, {
+        method: 'GET',
+        headers,
+        credentials: 'include'
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        return { success: false, error: error.error || `HTTP ${response.status}` };
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('[Service Worker] Get result error:', error);
+      return { success: false, error: error.message };
+    }
   }
 };
 
