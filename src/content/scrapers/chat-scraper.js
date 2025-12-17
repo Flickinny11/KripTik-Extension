@@ -655,11 +655,17 @@ const ChatScraper = {
   },
 
   /**
-   * Create stable hash of element content
-   * @param {Element} el - Element to hash
+   * Create stable hash of element or content
+   * @param {Element|Object} el - Element to hash OR plain object with textContent
    * @returns {string} Hash string
    */
   hashElement(el) {
+    // Handle plain objects (used in processMessages for deduplication)
+    if (!el || typeof el.getAttribute !== 'function') {
+      const content = (el?.textContent || '').slice(0, 300).trim();
+      return this.hashString(content);
+    }
+
     const content = (el.textContent || '').slice(0, 300).trim();
     const className = el.className || '';
     const dataId = el.getAttribute('data-message-id') || el.getAttribute('data-id') || '';
@@ -670,8 +676,16 @@ const ChatScraper = {
     }
 
     // Otherwise hash the content
+    return this.hashString(content + (className ? className.slice(0, 50) : ''));
+  },
+
+  /**
+   * Hash a string
+   * @param {string} str - String to hash
+   * @returns {string} Hash string
+   */
+  hashString(str) {
     let hash = 0;
-    const str = content + className.slice(0, 50);
     for (let i = 0; i < str.length; i++) {
       const char = str.charCodeAt(i);
       hash = ((hash << 5) - hash) + char;

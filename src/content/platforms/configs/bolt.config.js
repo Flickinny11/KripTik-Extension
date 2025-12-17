@@ -1,4 +1,5 @@
 // Bolt.new (StackBlitz) Platform Configuration
+// Updated 2025-12-17 with improved selectors for current Bolt.new DOM structure
 
 (function () {
     const boltConfig = {
@@ -21,18 +22,78 @@
         },
 
         selectors: {
-            chatContainer: '[class*="chat"], [class*="Messages"], [class*="conversation"], [class*="Chat"], main',
-            chatMessage: '[class*="message"], [class*="Message"], [class*="turn"], [class*="response"]',
-            messageRole: 'data-sender, data-role, data-author',
-            messageContent: '[class*="content"], [class*="text"], [class*="prose"], p',
-            loadMoreButton: '.load-more, button[class*="load"], [class*="load-more"]',
-            errorPanel: '[class*="error"], [class*="Error"], [role="alert"]',
-            fileTree: '[class*="file"], [class*="File"], [class*="explorer"], [class*="sidebar"]',
-            fileItem: '[class*="file"], [class*="item"], [class*="node"]',
-            previewFrame: 'iframe[class*="preview"], iframe[title*="Preview"], iframe',
-            terminal: '[class*="terminal"], [class*="Terminal"], .xterm',
-            exportButton: '[class*="download"], [class*="export"], button[aria-label*="Download" i], button[aria-label*="Export" i]',
-            codeBlocks: 'pre code, [class*="code-block"], [class*="CodeBlock"], .hljs'
+            // Bolt.new 2024-2025 DOM structure
+            // The chat is in a scrollable container, messages have specific structure
+            chatContainer: [
+                // Primary: look for the messages container
+                '[class*="Messages"]',
+                '[class*="messages"]',
+                '[class*="chat-messages"]',
+                '[class*="ChatMessages"]',
+                // Secondary: common patterns
+                '[class*="conversation"]',
+                '[class*="Conversation"]',
+                // Fallback: main scrollable area
+                'main [class*="overflow-y-auto"]',
+                'main [class*="overflow-auto"]',
+                '[role="log"]',
+                'main'
+            ].join(', '),
+
+            // Message elements - Bolt uses divs with specific patterns
+            // Each message bubble/turn in the conversation
+            chatMessage: [
+                // Bolt.new specific patterns
+                '[class*="UserMessage"]',
+                '[class*="AssistantMessage"]',
+                '[class*="user-message"]',
+                '[class*="assistant-message"]',
+                '[class*="MessageContainer"]',
+                '[class*="message-container"]',
+                // Generic turn-based patterns
+                '[class*="turn"]',
+                '[class*="Turn"]',
+                // Role-based containers
+                '[data-role="user"]',
+                '[data-role="assistant"]',
+                // Generic message patterns
+                '[class*="chat-message"]',
+                '[class*="ChatMessage"]',
+                '[class*="Message"]:not([class*="Messages"])',
+                // Fallback: any element with message-like content
+                'article',
+                '[class*="prose"]'
+            ].join(', '),
+
+            messageRole: 'data-sender, data-role, data-author, data-message-author',
+            messageContent: '[class*="markdown"], [class*="Markdown"], [class*="content"], [class*="prose"], [class*="text"], p',
+
+            // Load more button for infinite scroll
+            loadMoreButton: [
+                'button[class*="load-more"]',
+                'button[class*="load-earlier"]',
+                '[class*="load-more"]',
+                '[aria-label*="load more" i]',
+                '[aria-label*="earlier" i]'
+            ].join(', '),
+
+            errorPanel: '[class*="error"], [class*="Error"], [role="alert"], [class*="ErrorBoundary"]',
+
+            // File explorer sidebar
+            fileTree: '[class*="file-tree"], [class*="FileTree"], [class*="explorer"], [class*="Explorer"], [class*="sidebar"], [class*="files"]',
+            fileItem: '[class*="file"], [class*="File"], [class*="item"], [class*="entry"], [class*="node"]',
+
+            // Preview iframe
+            previewFrame: 'iframe[class*="preview"], iframe[title*="Preview"], iframe[src*="webcontainer"], iframe',
+
+            // Terminal/console
+            terminal: '[class*="terminal"], [class*="Terminal"], .xterm, [class*="console"]',
+
+            // Export/download buttons
+            exportButton: '[aria-label*="Download" i], [aria-label*="Export" i], button[class*="download"], button[class*="export"]',
+
+            // Code blocks
+            codeBlocks: 'pre code, [class*="code-block"], [class*="CodeBlock"], .hljs, [class*="shiki"]'
         },
 
         metadata: {
