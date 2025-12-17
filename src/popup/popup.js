@@ -48,7 +48,9 @@
       saveConfig: document.getElementById('save-config'),
       openKriptik: document.getElementById('open-kriptik'),
       testConnection: document.getElementById('test-connection'),
-      captureMode: document.getElementById('capture-mode')
+      captureMode: document.getElementById('capture-mode'),
+      fixSessionCard: document.getElementById('fix-session-card'),
+      sessionStatus: document.getElementById('session-status')
     };
 
     // Load saved configuration
@@ -56,6 +58,9 @@
 
     // Detect current platform
     await detectPlatform();
+
+    // Check Fix My App session status
+    await checkFixMyAppSession();
 
     // Check capture mode
     await checkCaptureMode();
@@ -183,6 +188,52 @@
       }
     } catch (error) {
       console.error('[Popup] Capture mode check error:', error);
+    }
+  }
+
+  /**
+   * Check if there's an active Fix My App session
+   */
+  async function checkFixMyAppSession() {
+    try {
+      const { fixMyAppSession } = await chrome.storage.local.get(['fixMyAppSession']);
+
+      if (fixMyAppSession && fixMyAppSession.active) {
+        // Check if session is not expired (24 hour limit)
+        const sessionAge = Date.now() - fixMyAppSession.startedAt;
+        const maxAge = 24 * 60 * 60 * 1000; // 24 hours
+
+        if (sessionAge < maxAge) {
+          // Show the session card
+          elements.fixSessionCard.style.display = 'block';
+
+          // Update status text
+          const minutesAgo = Math.floor(sessionAge / 60000);
+          if (minutesAgo < 1) {
+            elements.sessionStatus.textContent = 'Active - Just started';
+          } else if (minutesAgo < 60) {
+            elements.sessionStatus.textContent = `Active - Started ${minutesAgo}m ago`;
+          } else {
+            const hoursAgo = Math.floor(minutesAgo / 60);
+            elements.sessionStatus.textContent = `Active - Started ${hoursAgo}h ago`;
+          }
+
+          // Also auto-fill the config if it came from the session
+          if (fixMyAppSession.apiEndpoint && !elements.apiEndpoint.value) {
+            elements.apiEndpoint.value = fixMyAppSession.apiEndpoint;
+          }
+          if (fixMyAppSession.token && !elements.apiToken.value) {
+            elements.apiToken.value = fixMyAppSession.token;
+          }
+
+          // Update connection status since we have config from KripTik
+          if (fixMyAppSession.apiEndpoint && fixMyAppSession.token) {
+            updateConnectionStatus('configured');
+          }
+        }
+      }
+    } catch (error) {
+      console.error('[Popup] Fix My App session check error:', error);
     }
   }
 

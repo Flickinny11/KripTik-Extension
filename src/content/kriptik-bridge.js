@@ -29,6 +29,7 @@
       case 'KRIPTIK_START_FIX_SESSION':
         // User started Fix My App workflow - enable capture on AI platforms
         try {
+          // Store session data in local storage (for content scripts)
           await chrome.storage.local.set({
             fixMyAppSession: {
               active: true,
@@ -39,7 +40,19 @@
               token: data.token
             }
           });
+
+          // ALSO store API config in sync storage (for KripTikAPIHandler)
+          // This ensures the capture can send data directly to KripTik
+          await chrome.storage.sync.set({
+            kriptikApiEndpoint: data.apiEndpoint,
+            kriptikToken: data.token,
+            // Also save in popup format for consistency
+            apiEndpoint: data.apiEndpoint,
+            apiToken: data.token
+          });
+
           console.log('[KripTik Bridge] Fix My App session started');
+          console.log('[KripTik Bridge] API endpoint configured:', data.apiEndpoint);
           window.postMessage({ type: 'KRIPTIK_FIX_SESSION_STARTED' }, '*');
         } catch (error) {
           console.error('[KripTik Bridge] Failed to start Fix My App session:', error);
