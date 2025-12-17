@@ -132,12 +132,14 @@
     style.id = styleId;
     style.textContent = `
       .kriptik-import-button {
-        position: fixed;
-        bottom: 24px;
-        right: 24px;
-        z-index: 999998;
+        position: fixed !important;
+        bottom: 80px !important;
+        right: 24px !important;
+        left: auto !important;
+        top: auto !important;
+        z-index: 2147483647 !important;
 
-        display: flex;
+        display: flex !important;
         align-items: center;
         gap: 10px;
 
@@ -148,9 +150,9 @@
           135deg,
           rgba(251, 191, 36, 0.2) 0%,
           rgba(251, 191, 36, 0.1) 100%
-        );
+        ) !important;
 
-        border: 1px solid rgba(251, 191, 36, 0.4);
+        border: 1px solid rgba(251, 191, 36, 0.4) !important;
         border-radius: 14px;
 
         /* Multi-layer shadows for depth */
@@ -159,11 +161,11 @@
           0 8px 32px rgba(0, 0, 0, 0.3),
           0 0 20px rgba(251, 191, 36, 0.2),
           inset 0 1px 2px rgba(255, 255, 255, 0.2),
-          inset 0 -1px 2px rgba(0, 0, 0, 0.2);
+          inset 0 -1px 2px rgba(0, 0, 0, 0.2) !important;
 
         backdrop-filter: blur(12px);
 
-        color: white;
+        color: white !important;
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
         font-size: 14px;
         font-weight: 600;
@@ -173,8 +175,8 @@
         cursor: pointer;
         transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
-        position: relative;
         overflow: hidden;
+        transform: none !important;
       }
 
       /* Pulse animation to draw attention */

@@ -202,18 +202,24 @@ const Overlay = {
                 await this.wait(2000);
             });
 
-            // Phase 3: Extract chat history
-            capturedData.chatHistory = await this.runPhase('extract', async (updateProgress) => {
-                return await ChatScraper.captureFullHistory(platform, (progress) => {
-                    updateProgress(progress.progress);
-                    this.updatePhaseMessage(progress.message);
-                    if (progress.count) {
-                        this.updateStat('messages', progress.count);
-                    }
+            // Phase 3: Extract chat history (non-fatal if fails)
+            try {
+                capturedData.chatHistory = await this.runPhase('extract', async (updateProgress) => {
+                    return await ChatScraper.captureFullHistory(platform, (progress) => {
+                        updateProgress(progress.progress);
+                        this.updatePhaseMessage(progress.message);
+                        if (progress.count) {
+                            this.updateStat('messages', progress.count);
+                        }
+                    });
                 });
-            });
+            } catch (chatError) {
+                console.warn('[Overlay] Chat history capture failed:', chatError);
+                this.addLog(`[WARN] Chat capture skipped: ${chatError.message}`);
+                capturedData.chatHistory = [];
+            }
 
-            // Phase  4: Error analysis
+            // Phase 4: Error analysis
             const errorData = await this.runPhase('errors', async () => {
                 const data = ErrorScraper.getAll(platform);
                 this.updateStat('errors', data.errors.length);
@@ -223,16 +229,22 @@ const Overlay = {
             capturedData.errors = errorData.errors;
             capturedData.consoleLogs = errorData.consoleLogs;
 
-            // Phase 5: File tree
-            capturedData.fileTree = await this.runPhase('files', async (updateProgress) => {
-                return await FileTreeScraper.capture(platform, (progress) => {
-                    updateProgress(progress.progress);
-                    this.updatePhaseMessage(progress.message);
-                    if (progress.count) {
-                        this.updateStat('files', progress.count);
-                    }
+            // Phase 5: File tree (non-fatal if fails)
+            try {
+                capturedData.fileTree = await this.runPhase('files', async (updateProgress) => {
+                    return await FileTreeScraper.capture(platform, (progress) => {
+                        updateProgress(progress.progress);
+                        this.updatePhaseMessage(progress.message);
+                        if (progress.count) {
+                            this.updateStat('files', progress.count);
+                        }
+                    });
                 });
-            });
+            } catch (fileError) {
+                console.warn('[Overlay] File tree capture failed:', fileError);
+                this.addLog(`[WARN] File tree capture skipped: ${fileError.message}`);
+                capturedData.fileTree = null;
+            }
 
             // Phase 6: Artifacts (if supported)
             if (PlatformRegistry.hasFeature(platform, 'artifacts')) {
@@ -348,27 +360,34 @@ const Overlay = {
         this.addLog('[EXPORT] Preparing export handler...');
 
         try {
-            // Get appropriate export handler
+            // Get appropriate export handler (KripTik API)
             const ExportHandler = this.getExportHandler(platform);
             const handler = new ExportHandler(platform);
 
             // Set captured data
             handler.setCapturedData(this.capturedData);
 
-            this.addLog(`[EXPORT] Using ${platform.exportMechanism} export method`);
+            this.addLog(`[EXPORT] Sending captured data to KripTik AI...`);
 
-            // Execute export
+            // Execute export to KripTik
             const success = await handler.export();
 
             if (success) {
-                this.addLog('[SUCCESS] Export initiated successfully');
+                this.addLog('[SUCCESS] Data sent to KripTik AI successfully');
                 this.updateStatus('exported', 'Export complete');
+
+                // Also trigger ZIP download for platforms that support it
+                await this.triggerZipDownload(platform);
             } else {
-                this.addLog('[ERROR] Export failed');
+                this.addLog('[ERROR] Failed to send data to KripTik');
+                // Still try to get the ZIP file
+                await this.triggerZipDownload(platform);
             }
         } catch (error) {
             console.error('[Overlay] Export error:', error);
             this.addLog(`[ERROR] Export failed: ${error.message}`);
+            // Still try to get the ZIP file even if API export fails
+            await this.triggerZipDownload(platform);
         }
     },
 
@@ -398,6 +417,78 @@ const Overlay = {
             default:
                 return DownloadZipHandler;
         }
+    },
+
+    /**
+     * Trigger ZIP download for platforms that support it (Bolt, Lovable, etc.)
+     * @param {Object} platform - Platform configuration
+     */
+    async triggerZipDownload(platform) {
+        if (platform.exportMechanism !== 'zip-download' && platform.exportMechanism !== 'download-zip') {
+            return;
+        }
+
+        this.addLog('[ZIP] Looking for export button to download project files...');
+
+        try {
+            // Look for export/download button
+            const exportSelectors = [
+                'button[aria-label*="export" i]',
+                'button[aria-label*="download" i]',
+                '[class*="export"] button',
+                '[class*="download"] button',
+                '[data-testid*="export"]',
+                '[data-testid*="download"]'
+            ];
+
+            let exportBtn = null;
+
+            // First try specific selectors
+            for (const selector of exportSelectors) {
+                try {
+                    const el = document.querySelector(selector);
+                    if (el && this.isElementVisible(el)) {
+                        exportBtn = el;
+                        break;
+                    }
+                } catch (e) {}
+            }
+
+            // If not found, search buttons by text
+            if (!exportBtn) {
+                const buttons = document.querySelectorAll('button, [role="button"], [role="menuitem"]');
+                for (const el of buttons) {
+                    const text = (el.textContent || el.getAttribute('aria-label') || '').toLowerCase();
+                    if ((text.includes('export') || text.includes('download')) && this.isElementVisible(el)) {
+                        exportBtn = el;
+                        break;
+                    }
+                }
+            }
+
+            if (exportBtn) {
+                this.addLog('[ZIP] Found export button, triggering download...');
+                exportBtn.click();
+                await this.wait(1000);
+                this.addLog('[ZIP] Download triggered - check your browser downloads');
+            } else {
+                this.addLog('[ZIP] Export button not found automatically');
+                this.addLog('[INFO] To get project files: Click the "..." menu in Bolt and select "Download"');
+            }
+        } catch (error) {
+            this.addLog(`[ZIP] Auto-download failed: ${error.message}`);
+        }
+    },
+
+    /**
+     * Check if element is visible
+     */
+    isElementVisible(el) {
+        if (!el) return false;
+        const rect = el.getBoundingClientRect();
+        const style = getComputedStyle(el);
+        return rect.width > 0 && rect.height > 0 &&
+               style.visibility !== 'hidden' && style.display !== 'none';
     },
 
     /**
