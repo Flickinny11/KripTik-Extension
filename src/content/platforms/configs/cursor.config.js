@@ -8,7 +8,7 @@
         tier: 1,
         hostPatterns: ['cursor.sh', 'cursor.com'],
         projectUrlPattern: /cursor\.(sh|com)\/([a-zA-Z0-9-]+)/,
-        export Mechanism: 'chat-export',
+        exportMechanism: 'chat-export',
 
         features: {
             chatHistory: true,

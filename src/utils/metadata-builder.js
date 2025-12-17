@@ -65,7 +65,7 @@ const MetadataBuilder = {
         if (!fileTree) {
             return {
                 structure: {},
-                stats: { totalFiles: 0, totalFolders: 0, file Types: {} }
+                stats: { totalFiles: 0, totalFolders: 0, fileTypes: {} }
             };
         }
 

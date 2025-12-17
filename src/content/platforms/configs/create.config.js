@@ -12,7 +12,7 @@
 
         features: {
             chatHistory: true,
-            file Tree: false,
+            fileTree: false,
             livePreview: true,
             errorTracking: true,
             consoleAccess: true,
