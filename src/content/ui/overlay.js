@@ -119,10 +119,6 @@ const Overlay = {
               <span class="btn-icon">▶</span>
               <span class="btn-text">START CAPTURE</span>
             </button>
-            <button class="btn btn-secondary" id="btn-vision" title="AI-powered capture using Gemini Vision">
-              <span class="btn-icon">👁️</span>
-              <span class="btn-text">VISION CAPTURE</span>
-            </button>
             <button class="btn btn-secondary" id="btn-export" disabled>
               <span class="btn-icon">↓</span>
               <span class="btn-text">EXPORT</span>
@@ -162,14 +158,9 @@ const Overlay = {
             if (!this.isCapturing) this.hide();
         });
 
-        // Start capture button (DOM-based)
+        // Start capture button - uses vision capture by default
         this.overlay.querySelector('#btn-capture').addEventListener('click', () => {
-            this.startCapture(platform, false);
-        });
-
-        // Vision capture button (AI-powered)
-        this.overlay.querySelector('#btn-vision').addEventListener('click', () => {
-            this.startCapture(platform, true);
+            this.startCapture(platform);
         });
 
         // Export button
@@ -180,10 +171,12 @@ const Overlay = {
 
     /**
      * Start the capture process
+     * Uses AI-powered vision capture by default for best results across all platforms
+     * Falls back to DOM-based capture if vision capture is unavailable
      * @param {Object} platform - Platform configuration
-     * @param {boolean} useVision - Whether to use vision-based capture
+     * @param {boolean} useDOMFallback - Force DOM-based capture (used for fallback/retry)
      */
-    async startCapture(platform, useVision = false) {
+    async startCapture(platform, useDOMFallback = false) {
         if (this.isCapturing) return;
         this.isCapturing = true;
 
@@ -193,13 +186,13 @@ const Overlay = {
 
         this.updateStatus('capturing', 'Capture in progress');
 
-        // If vision capture is requested, use the server-side Gemini + Playwright approach
-        if (useVision) {
+        // Use vision capture by default (unless explicitly using DOM fallback)
+        if (!useDOMFallback) {
             await this.startVisionCapture(platform);
             return;
         }
 
-        this.addLog('[START] Initiating capture sequence...');
+        this.addLog('[START] Initiating DOM-based capture sequence...');
 
         try {
             // Initialize capture data
@@ -571,13 +564,13 @@ const Overlay = {
     },
 
     /**
-     * Start vision-based capture using server-side Gemini 3 Flash + Playwright
-     * This is the intelligent, platform-agnostic capture method
+     * Start AI-powered capture using server-side Gemini Vision + Playwright
+     * This is the primary capture method - works across all platforms
      * @param {Object} platform - Platform configuration
      */
     async startVisionCapture(platform) {
-        this.addLog('[VISION] Starting AI-powered vision capture...');
-        this.addLog('[VISION] Using Gemini 3 Flash + Playwright on server');
+        this.addLog('[START] Initiating AI-powered capture...');
+        this.addLog('[INFO] Using server-side visual analysis for best results');
 
         try {
             // Set up callbacks for progress updates
@@ -604,35 +597,35 @@ const Overlay = {
                 });
 
                 if (!result.success) {
-                    throw new Error(result.error || 'Failed to start vision capture');
+                    throw new Error(result.error || 'Failed to start capture');
                 }
 
-                this.addLog(`[VISION] Session started: ${result.sessionId}`);
-                this.addLog('[VISION] Server is now controlling a headless browser...');
-                this.updatePhaseMessage('AI is analyzing the page visually...');
+                this.addLog(`[SESSION] Capture started: ${result.sessionId}`);
+                this.addLog('[CAPTURE] Server is analyzing the page...');
+                this.updatePhaseMessage('AI is capturing content...');
 
             } else {
                 throw new Error('VisionCapture module not loaded');
             }
 
         } catch (error) {
-            console.error('[Overlay] Vision capture error:', error);
-            this.addLog(`[ERROR] Vision capture failed: ${error.message}`);
+            console.error('[Overlay] Capture error:', error);
+            this.addLog(`[ERROR] AI capture failed: ${error.message}`);
             this.addLog('[INFO] Falling back to DOM-based capture...');
 
             // Fall back to DOM-based capture
             this.isCapturing = false;
-            await this.startCapture(platform, false);
+            await this.startCapture(platform, true); // true = use DOM fallback
         }
     },
 
     /**
-     * Handle vision capture completion
+     * Handle capture completion
      * @param {Object} data - Capture result data
      * @param {Object} platform - Platform configuration
      */
     async handleVisionCaptureComplete(data, platform) {
-        this.addLog('[VISION] Capture complete!');
+        this.addLog('[DONE] Capture complete!');
 
         const result = data.result;
         if (result) {
@@ -643,7 +636,7 @@ const Overlay = {
         }
 
         // Update UI
-        this.updateStatus('complete', 'Vision capture complete!');
+        this.updateStatus('complete', 'Capture complete!');
 
         const captureBtn = this.overlay.querySelector('#btn-capture');
         captureBtn.querySelector('.btn-text').textContent = 'CAPTURE COMPLETE';
@@ -663,51 +656,26 @@ const Overlay = {
     },
 
     /**
-     * Handle vision capture error
+     * Handle capture error
      * @param {Object} error - Error object
      * @param {Object} platform - Platform configuration
      */
     async handleVisionCaptureError(error, platform) {
-        this.addLog(`[ERROR] Vision capture failed: ${error.message}`);
-        this.addLog('[INFO] You can try DOM-based capture as a fallback');
+        this.addLog(`[ERROR] Capture failed: ${error.message}`);
+        this.addLog('[INFO] Click retry to attempt DOM-based capture');
 
-        this.updateStatus('error', 'Vision capture failed');
+        this.updateStatus('error', 'Capture failed');
 
         const captureBtn = this.overlay.querySelector('#btn-capture');
         captureBtn.disabled = false;
-        captureBtn.querySelector('.btn-text').textContent = 'RETRY (DOM Mode)';
+        captureBtn.querySelector('.btn-text').textContent = 'RETRY CAPTURE';
 
         // Update click handler to use DOM mode on retry
         captureBtn.onclick = () => {
-            this.startCapture(platform, false);
+            this.startCapture(platform, true); // true = use DOM fallback
         };
 
         this.isCapturing = false;
-    },
-
-    /**
-     * Offer vision capture as an option when DOM capture fails
-     * @param {Object} platform - Platform configuration
-     */
-    offerVisionCapture(platform) {
-        this.addLog('[TIP] Try Vision Capture for better results');
-        this.addLog('[INFO] Vision capture uses AI to visually read the screen');
-
-        // Add a "Try Vision Capture" button
-        const actionsContainer = this.overlay.querySelector('.action-buttons');
-        if (actionsContainer && !document.getElementById('btn-vision')) {
-            const visionBtn = document.createElement('button');
-            visionBtn.id = 'btn-vision';
-            visionBtn.className = 'btn btn-secondary';
-            visionBtn.innerHTML = `
-                <span class="btn-icon">👁️</span>
-                <span class="btn-text">VISION CAPTURE</span>
-            `;
-            visionBtn.onclick = () => {
-                this.startCapture(platform, true);
-            };
-            actionsContainer.appendChild(visionBtn);
-        }
     }
 };
 
